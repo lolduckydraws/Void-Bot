@@ -70,10 +70,6 @@ export async function loadCommands(client) {
         try {
             const normalizedPath = filePath.replace(/\\/g, '/');
 
-            const commandName = path.basename(filePath, '.js');
-            const commandDir = path.dirname(filePath);
-            const category = path.basename(commandDir);
-
             const commandModule = await import(`file://${filePath}`);
             const command = commandModule.default || commandModule;
 
@@ -84,6 +80,9 @@ export async function loadCommands(client) {
                 continue;
             }
 
+            const commandDir = path.dirname(filePath);
+            const category = path.basename(commandDir);
+
             command.category = category;
             command.filePath = normalizedPath;
 
@@ -92,6 +91,11 @@ export async function loadCommands(client) {
             if (!uniqueCommandNames.has(primaryCommandName)) {
                 uniqueCommandNames.add(primaryCommandName);
                 client.commands.set(primaryCommandName, command);
+            } else {
+                logger.warn(
+                    `Duplicate command "${primaryCommandName}" detected. Skipping ${normalizedPath}`
+                );
+                continue;
             }
 
             const subcommands = getSubcommandInfo(command.data.toJSON());
@@ -101,22 +105,29 @@ export async function loadCommands(client) {
             );
 
             if (subcommands.length > 0) {
-                logger.info(`  - Subcommands: ${subcommands.join(', ')}`);
+                logger.info(
+                    `  - Subcommands: ${subcommands.join(', ')}`
+                );
             }
 
         } catch (error) {
-            logger.error(`Error loading command from ${filePath}:`, error);
+            logger.error(
+                `Error loading command from ${filePath}:`,
+                error
+            );
         }
     }
 
-    const commandsWithSubcommands = Array.from(client.commands.values()).filter(cmd => {
-        const subcommands = getSubcommandInfo(cmd.data.toJSON());
-        return subcommands.length > 0;
-    });
+    const commandsWithSubcommands =
+        Array.from(client.commands.values()).filter((cmd) => {
+            const subcommands = getSubcommandInfo(cmd.data.toJSON());
+            return subcommands.length > 0;
+        });
 
-    const totalSubcommands = commandsWithSubcommands.reduce((total, cmd) => {
-        return total + getSubcommandInfo(cmd.data.toJSON()).length;
-    }, 0);
+    const totalSubcommands =
+        commandsWithSubcommands.reduce((total, cmd) => {
+            return total + getSubcommandInfo(cmd.data.toJSON()).length;
+        }, 0);
 
     const uniqueCommands = new Set();
 
@@ -137,17 +148,22 @@ function collectCommandPayloads(client) {
     const registeredNames = new Set();
 
     for (const command of client.commands.values()) {
-        if (!command.data || typeof command.data.toJSON !== 'function') {
-            logger.warn(`Command missing data or toJSON method: ${command}`);
+        if (
+            !command.data ||
+            typeof command.data.toJSON !== 'function'
+        ) {
+            logger.warn(
+                `Command missing data or toJSON method: ${command}`
+            );
             continue;
         }
 
         const commandName = command.data.name;
 
-        logger.debug(`Processing command for registration: ${commandName}`);
-
         if (registeredNames.has(commandName)) {
-            logger.debug(`Skipping duplicate command: ${commandName}`);
+            logger.debug(
+                `Skipping duplicate command: ${commandName}`
+            );
             continue;
         }
 
@@ -156,14 +172,21 @@ function collectCommandPayloads(client) {
         const commandJson = command.data.toJSON();
 
         commands.push(commandJson);
-        totalSubcommands += getSubcommandInfo(commandJson).length;
+
+        totalSubcommands +=
+            getSubcommandInfo(commandJson).length;
 
         if (process.env.NODE_ENV !== 'production') {
-            logger.debug(`Registering command: ${commandName}`);
+            logger.debug(
+                `Preparing command for registration: ${commandName}`
+            );
         }
     }
 
-    return { commands, totalSubcommands };
+    return {
+        commands,
+        totalSubcommands,
+    };
 }
 
 function validateCommands(commands) {
@@ -193,7 +216,10 @@ function validateCommands(commands) {
                 );
             }
 
-            if (option.description && option.description.length > 110) {
+            if (
+                option.description &&
+                option.description.length > 110
+            ) {
                 validationErrors.push(
                     `Command ${cmd.name} option ${option.name} has description longer than 110 chars: "${option.description}" (${option.description.length} chars)`
                 );
@@ -201,15 +227,22 @@ function validateCommands(commands) {
 
             if (option.choices) {
                 for (const choice of option.choices) {
-                    if (choice.name && choice.name.length > 110) {
+                    if (
+                        choice.name &&
+                        choice.name.length > 110
+                    ) {
                         validationErrors.push(
                             `Command ${cmd.name} option ${option.name} choice ${choice.name} has name longer than 110 chars: "${choice.name}" (${choice.name.length} chars)`
                         );
                     }
 
-                    if (choice.value && choice.value.length > 100) {
+                    if (
+                        choice.value &&
+                        typeof choice.value === 'string' &&
+                        choice.value.length > 100
+                    ) {
                         validationErrors.push(
-                            `Command ${cmd.name} option ${option.name} choice ${choice.name} has value longer than 100 chars: "${choice.value}" (${choice.value.length} chars)`
+                            `Command ${cmd.name} option ${option.name} choice ${choice.name} has value longer than 100 chars`
                         );
                     }
                 }
@@ -220,15 +253,21 @@ function validateCommands(commands) {
             }
 
             for (const subOption of option.options) {
-                if (subOption.name && subOption.name.length > 32) {
+                if (
+                    subOption.name &&
+                    subOption.name.length > 32
+                ) {
                     validationErrors.push(
-                        `Command ${cmd.name} subcommand ${option.name} option ${subOption.name} has name longer than 32 chars: "${subOption.name}" (${subOption.name.length} chars)`
+                        `Command ${cmd.name} subcommand ${option.name} option ${subOption.name} has name longer than 32 chars`
                     );
                 }
 
-                if (subOption.description && subOption.description.length > 110) {
+                if (
+                    subOption.description &&
+                    subOption.description.length > 110
+                ) {
                     validationErrors.push(
-                        `Command ${cmd.name} subcommand ${option.name} option ${subOption.name} has description longer than 110 chars: "${subOption.description}" (${subOption.description.length} chars)`
+                        `Command ${cmd.name} subcommand ${option.name} option ${subOption.name} has description longer than 110 chars`
                     );
                 }
 
@@ -237,15 +276,22 @@ function validateCommands(commands) {
                 }
 
                 for (const choice of subOption.choices) {
-                    if (choice.name && choice.name.length > 110) {
+                    if (
+                        choice.name &&
+                        choice.name.length > 110
+                    ) {
                         validationErrors.push(
-                            `Command ${cmd.name} subcommand ${option.name} option ${subOption.name} choice ${choice.name} has name longer than 110 chars: "${choice.name}" (${choice.name.length} chars)`
+                            `Command ${cmd.name} subcommand ${option.name} option ${subOption.name} choice ${choice.name} has name longer than 110 chars`
                         );
                     }
 
-                    if (choice.value && choice.value.length > 100) {
+                    if (
+                        choice.value &&
+                        typeof choice.value === 'string' &&
+                        choice.value.length > 100
+                    ) {
                         validationErrors.push(
-                            `Command ${cmd.name} subcommand ${option.name} option ${subOption.name} choice ${choice.name} has value longer than 100 chars: "${choice.value}" (${choice.value.length} chars)`
+                            `Command ${cmd.name} subcommand ${option.name} option ${subOption.name} choice ${choice.name} has value longer than 100 chars`
                         );
                     }
                 }
@@ -254,7 +300,9 @@ function validateCommands(commands) {
     }
 
     if (validationErrors.length > 0) {
-        logger.error('Command validation failed. Errors:');
+        logger.error(
+            'Command validation failed. Errors:'
+        );
 
         validationErrors.forEach((error) => {
             logger.error(`  - ${error}`);
@@ -283,7 +331,9 @@ function prepareCommandsForRegistration(commands) {
 
     const truncated = commands.slice(0, MAX_COMMANDS);
 
-    logger.info(`Truncated to ${truncated.length} commands for registration`);
+    logger.info(
+        `Truncated to ${truncated.length} commands for registration`
+    );
 
     return truncated;
 }
@@ -317,41 +367,39 @@ async function registerGuildCommands(
         `Preparing to register ${totalSubcommands + commands.length} commands to Void SMP`
     );
 
-    logger.info('Validating commands before registration...');
+    logger.info(
+        'Validating commands before registration...'
+    );
 
     validateCommands(commands);
 
-    logger.info('Command validation passed');
+    logger.info(
+        'Command validation passed'
+    );
 
     const commandsToRegister =
         prepareCommandsForRegistration(commands);
 
-    // ALWAYS clear old global commands.
-    // These are the commands created by the old global registration system.
-    // Leaving them there causes every command to appear twice.
-    logger.info('Clearing old global commands...');
+    /*
+     * IMPORTANT:
+     * We intentionally do NOT clear global commands here.
+     *
+     * The previous version cleared global commands before
+     * registration. If Railway failed during startup, this
+     * caused every slash command to disappear.
+     *
+     * We now simply replace the Void SMP guild command list.
+     */
 
-    await client.rest.put(
-        `/applications/${clientId}/commands`,
-        { body: [] }
-    );
-
-    // ALWAYS clear existing Void SMP guild commands first.
-    logger.info('Clearing existing Void SMP commands...');
-
-    await client.rest.put(
-        `/applications/${clientId}/guilds/${guildId}/commands`,
-        { body: [] }
-    );
-
-    // Register the commands ONLY to Void SMP.
     logger.info(
         `Registering ${commandsToRegister.length} commands to Void SMP (${guildId})...`
     );
 
     await client.rest.put(
         `/applications/${clientId}/guilds/${guildId}/commands`,
-        { body: commandsToRegister }
+        {
+            body: commandsToRegister,
+        }
     );
 
     logger.info(
@@ -359,12 +407,19 @@ async function registerGuildCommands(
     );
 }
 
-export async function registerCommands(client, options = {}) {
-    const { clientId = null } = options;
+export async function registerCommands(
+    client,
+    options = {}
+) {
+    const {
+        clientId = null,
+    } = options;
 
     try {
-        const { commands, totalSubcommands } =
-            collectCommandPayloads(client);
+        const {
+            commands,
+            totalSubcommands,
+        } = collectCommandPayloads(client);
 
         await registerGuildCommands(
             client,
@@ -375,24 +430,36 @@ export async function registerCommands(client, options = {}) {
         );
 
     } catch (error) {
-        logger.error('Error registering commands:', error);
+        logger.error(
+            'Error registering commands:',
+            error
+        );
+
         throw error;
     }
 }
 
-export async function reloadCommand(client, commandName) {
-    const command = client.commands.get(commandName);
+export async function reloadCommand(
+    client,
+    commandName
+) {
+    const command =
+        client.commands.get(commandName);
 
     if (!command) {
         return {
             success: false,
-            message: `Command "${commandName}" not found`
+            message:
+                `Command "${commandName}" not found`,
         };
     }
 
     try {
-        const commandPath = path.resolve(command.filePath);
-        const moduleUrl = pathToFileURL(commandPath);
+        const commandPath =
+            path.resolve(command.filePath);
+
+        const moduleUrl =
+            pathToFileURL(commandPath);
 
         moduleUrl.searchParams.set(
             't',
@@ -402,13 +469,19 @@ export async function reloadCommand(client, commandName) {
         const newCommand =
             (await import(moduleUrl.href)).default;
 
-        client.commands.set(commandName, newCommand);
+        client.commands.set(
+            commandName,
+            newCommand
+        );
 
-        logger.info(`Reloaded command: ${commandName}`);
+        logger.info(
+            `Reloaded command: ${commandName}`
+        );
 
         return {
             success: true,
-            message: `Successfully reloaded command "${commandName}"`
+            message:
+                `Successfully reloaded command "${commandName}"`,
         };
 
     } catch (error) {
@@ -419,7 +492,8 @@ export async function reloadCommand(client, commandName) {
 
         return {
             success: false,
-            message: `Error reloading command: ${error.message}`
+            message:
+                `Error reloading command: ${error.message}`,
         };
     }
 }
