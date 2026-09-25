@@ -9,8 +9,8 @@ const ALLOWED_USER_IDS = [
 
 export default {
     data: new SlashCommandBuilder()
-        .setName("SAs")
-        .setDescription("Rp someone in the Void.")
+        .setName("Monkey")
+        .setDescription("Monkey someone across the Void.")
         .addUserOption((option) =>
             option
                 .setName("target")
@@ -22,7 +22,7 @@ export default {
 
     async execute(interaction, config, client) {
 
-        // Only the designated user can use this command
+        // Only allowed users can use this command
         if (!ALLOWED_USER_IDS.includes(interaction.user.id)) {
             const embed = warningEmbed(
                 "🚫 Access Denied",
@@ -52,13 +52,6 @@ export default {
             });
         }
 
-        // Prevent slapping bots
-        if (target.bot) {
-            const embed = warningEmbed(
-                "❌ Invalid Target",
-                "You can't slap bots!"
-            );
-
             return await InteractionHelper.safeEditReply(interaction, {
                 embeds: [embed]
             });
@@ -76,7 +69,7 @@ export default {
             responses[Math.floor(Math.random() * responses.length)];
 
         const embed = successEmbed(
-            "RAPE",
+            "👋 MonkeyP",
             response
         );
 
