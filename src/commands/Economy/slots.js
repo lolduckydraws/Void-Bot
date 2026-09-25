@@ -5,6 +5,7 @@ import { withErrorHandling, createError, ErrorTypes } from '../../utils/errorHan
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 
 const SLOTS_COOLDOWN = 5 * 60 * 1000;
+const REEL_COUNT = 5;
 
 const SLOT_SYMBOLS = [
     {
@@ -39,8 +40,6 @@ const SLOT_SYMBOLS = [
     },
 ];
 
-const REEL_COUNT = 5;
-
 function getRandomSymbol() {
     return SLOT_SYMBOLS[
         Math.floor(Math.random() * SLOT_SYMBOLS.length)
@@ -55,39 +54,37 @@ function generateReels() {
 }
 
 function getSlotResult(reels) {
-    const counts = new Map();
+    const counts = {};
 
     for (const symbol of reels) {
-        const current = counts.get(symbol.emoji) || 0;
-
-        counts.set(symbol.emoji, current + 1);
+        counts[symbol.emoji] = (counts[symbol.emoji] || 0) + 1;
     }
 
-    let bestMatch = null;
+    let bestSymbol = null;
     let bestCount = 0;
 
-    for (const [emoji, count] of counts.entries()) {
+    for (const symbol of SLOT_SYMBOLS) {
+        const count = counts[symbol.emoji] || 0;
+
         if (count > bestCount) {
             bestCount = count;
-            bestMatch = SLOT_SYMBOLS.find(
-                symbol => symbol.emoji === emoji
-            );
+            bestSymbol = symbol;
         }
     }
 
-    if (bestCount >= 3 && bestMatch) {
+    if (bestCount >= 3) {
         return {
             won: true,
-            matchCount: bestCount,
-            symbol: bestMatch,
-            multiplier: bestMatch.multiplier,
+            symbol: bestSymbol,
+            count: bestCount,
+            multiplier: bestSymbol.multiplier,
         };
     }
 
     return {
         won: false,
-        matchCount: bestCount,
-        symbol: bestMatch,
+        symbol: bestSymbol,
+        count: bestCount,
         multiplier: 0,
     };
 }
@@ -96,7 +93,7 @@ function formatReels(reels) {
     return reels.map(symbol => symbol.emoji).join('  ');
 }
 
-function sleep(ms) {
+function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
@@ -129,6 +126,7 @@ export default {
 
         const lastSlots = userData.lastSlots || 0;
 
+        // Cooldown check
         if (now < lastSlots + SLOTS_COOLDOWN) {
             const remaining = lastSlots + SLOTS_COOLDOWN - now;
 
@@ -151,6 +149,7 @@ export default {
             );
         }
 
+        // Wallet check
         if (userData.wallet < betAmount) {
             throw createError(
                 'Insufficient cash for slots',
@@ -163,104 +162,72 @@ export default {
             );
         }
 
-        /*
-         * Set the cooldown before the spin starts.
-         * This prevents the command from being spammed
-         * while the animation is running.
-         */
-        userData.lastSlots = now;
+        // Generate the result before displaying anything.
+        const reels = generateReels();
+        const result = getSlotResult(reels);
 
         /*
-         * Generate the final result before the animation.
-         * The animation only reveals the already-determined result.
+         * Show the spinning screen first.
          */
-        const finalReels = generateReels();
-        const result = getSlotResult(finalReels);
-
-        /*
-         * Initial mystery screen.
-         */
-        const mysteryEmbed = createEmbed({
+        const spinningEmbed = createEmbed({
             title: '🎰 Void Slots',
             description:
-                `The Void stares back at you...\n\n` +
+                `The reels are spinning...\n\n` +
                 `**❓  ❓  ❓  ❓  ❓**\n\n` +
-                `💰 Bet: **$${betAmount.toLocaleString()}**\n\n` +
-                `*The reels are spinning...*`,
+                `💰 Bet: **$${betAmount.toLocaleString()}**`,
             color: '#2C2F33',
         }).setFooter({
-            text: 'Good luck...',
+            text: 'The Void is deciding your fate...',
         });
 
         await InteractionHelper.safeEditReply(interaction, {
-            embeds: [mysteryEmbed],
+            embeds: [spinningEmbed],
         });
 
         /*
-         * Reveal the reels one by one.
+         * Short suspense delay.
+         * This is NOT a reel animation.
          */
-        for (let i = 0; i < REEL_COUNT; i++) {
-            await sleep(600);
-
-            const visibleReels = finalReels.map(
-                (symbol, index) =>
-                    index <= i ? symbol : { emoji: '❓' }
-            );
-
-            const spinningEmbed = createEmbed({
-                title: '🎰 Void Slots',
-                description:
-                    `The reels are spinning...\n\n` +
-                    `**${formatReels(visibleReels)}**\n\n` +
-                    `💰 Bet: **$${betAmount.toLocaleString()}**`,
-                color: '#2C2F33',
-            }).setFooter({
-                text: `Reel ${i + 1}/${REEL_COUNT} revealed...`,
-            });
-
-            await InteractionHelper.safeEditReply(interaction, {
-                embeds: [spinningEmbed],
-            });
-        }
+        await wait(1500);
 
         /*
-         * Calculate the player's final balance.
-         *
-         * A win gives the full payout.
-         * A loss removes the original bet.
+         * Apply the result.
          */
         let cashChange = 0;
-        let resultTitle;
-        let resultDescription;
-        let resultColor;
+        let resultEmbed;
 
         if (result.won) {
             const payout = betAmount * result.multiplier;
 
+            // The bet is considered at stake,
+            // so only the profit is added to the wallet.
             cashChange = payout - betAmount;
 
-            resultTitle = '🎰 VOID SLOTS — WIN!';
-            resultDescription =
-                `**${formatReels(finalReels)}**\n\n` +
-                `✨ **${result.matchCount} matching symbols!**\n\n` +
-                `${result.symbol.emoji} **${result.symbol.name}** pays **${result.multiplier}×**!\n\n` +
-                `💰 You won **$${payout.toLocaleString()}**!\n` +
-                `📈 Net profit: **+$${cashChange.toLocaleString()}**`;
-
-            resultColor = '#2ECC71';
+            resultEmbed = createEmbed({
+                title: '🎰 VOID SLOTS — YOU WON!',
+                description:
+                    `**${formatReels(reels)}**\n\n` +
+                    `✨ You matched **${result.count}× ${result.symbol.emoji} ${result.symbol.name}**!\n\n` +
+                    `🎯 Payout: **${result.multiplier}×**\n` +
+                    `💰 You won **$${payout.toLocaleString()}**!\n` +
+                    `📈 Net profit: **+$${cashChange.toLocaleString()}**`,
+                color: '#2ECC71',
+            });
         } else {
             cashChange = -betAmount;
 
-            resultTitle = '🎰 VOID SLOTS — LOSS';
-            resultDescription =
-                `**${formatReels(finalReels)}**\n\n` +
-                `💔 No matching combination.\n\n` +
-                `You lost **$${betAmount.toLocaleString()}**.`;
-
-            resultColor = '#E74C3C';
+            resultEmbed = createEmbed({
+                title: '🎰 VOID SLOTS — YOU LOST',
+                description:
+                    `**${formatReels(reels)}**\n\n` +
+                    `💔 No matching combination.\n\n` +
+                    `You lost **$${betAmount.toLocaleString()}**.`,
+                color: '#E74C3C',
+            });
         }
 
         userData.wallet = (userData.wallet || 0) + cashChange;
+        userData.lastSlots = Date.now();
 
         await setEconomyData(
             client,
@@ -269,25 +236,26 @@ export default {
             userData
         );
 
-        const resultEmbed = createEmbed({
-            title: resultTitle,
-            description: resultDescription,
-            color: resultColor,
-        })
-            .addFields({
+        resultEmbed.addFields(
+            {
                 name: '💰 New Cash Balance',
                 value: `$${userData.wallet.toLocaleString()}`,
                 inline: true,
-            })
-            .addFields({
+            },
+            {
                 name: '🎲 Bet',
                 value: `$${betAmount.toLocaleString()}`,
                 inline: true,
-            })
-            .setFooter({
-                text: 'Next Void Slots spin available in 5 minutes.',
-            });
+            }
+        );
 
+        resultEmbed.setFooter({
+            text: 'Next Void Slots spin available in 5 minutes.',
+        });
+
+        /*
+         * Edit the SAME Discord message with the final result.
+         */
         await InteractionHelper.safeEditReply(interaction, {
             embeds: [resultEmbed],
         });
