@@ -60,7 +60,7 @@ export default {
             responses[Math.floor(Math.random() * responses.length)];
 
         const embed = successEmbed(
-            "🫱🫲 Ra",
+            "Rape",
             response
         );
 
