@@ -4,8 +4,8 @@ import { InteractionHelper } from '../../utils/interactionHelper.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName("rape")
-        .setDescription("Rape someone in the void.")
+        .setName("ra")
+        .setDescription("Rp someone in the void.")
         .addUserOption((option) =>
             option
                 .setName("target")
@@ -50,7 +50,7 @@ export default {
         // ==========================================
 
         const responses = [
-    `**${user.username}** raped **${target.username}**'s ass, ouch that must've hurt.`,
+    `**${user.username}** dihhstroyed **${target.username}**'s ass, ouch that must've hurt.`,
     `**${target.username}**'s ass got ripped apart by **${user.username}**.`,
     `**${target.username}** got a mouth full c*m from **${user.username}**.`,
     `**${user.username}** chose sexual violence against **${target.username}**.`,
@@ -60,7 +60,7 @@ export default {
             responses[Math.floor(Math.random() * responses.length)];
 
         const embed = successEmbed(
-            "🫱🫲 Rape",
+            "🫱🫲 Ra",
             response
         );
 
