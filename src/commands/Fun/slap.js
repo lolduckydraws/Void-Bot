@@ -5,7 +5,7 @@ import { InteractionHelper } from '../../utils/interactionHelper.js';
 export default {
     data: new SlashCommandBuilder()
         .setName("slap")
-        ..setDescription("Slap someone across the Void.")
+        .setDescription("Slap someone across the Void.")
         .addUserOption((option) =>
             option
                 .setName("target")
