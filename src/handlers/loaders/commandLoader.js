@@ -327,6 +327,19 @@ async function registerGuildCommands(
         prepareCommandsForRegistration(commands);
 
     if (botConfig.commands?.deleteCommands) {
+
+        // Clear the old global commands.
+        // These were created by the previous version of the loader
+        // and are what caused the commands to appear twice.
+        logger.info('Clearing old global commands...');
+
+        await client.rest.put(
+            `/applications/${clientId}/commands`,
+            { body: [] }
+        );
+
+        // Clear existing Void SMP guild commands before
+        // registering the current command list.
         logger.info(
             'Clearing existing Void SMP commands before registration...'
         );
