@@ -14,7 +14,7 @@ export default {
         .addUserOption((option) =>
             option
                 .setName("target")
-                .setDescription("The user to monke.")
+                .setDescription("The user to target.")
                 .setRequired(true)
         ),
 
