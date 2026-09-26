@@ -9,8 +9,8 @@ const ALLOWED_USER_IDS = [
 
 export default {
     data: new SlashCommandBuilder()
-        .setName("SA")
-        .setDescription("Rape someone in the Void.")
+        .setName("SAS")
+        .setDescription("Rp someone in the Void.")
         .addUserOption((option) =>
             option
                 .setName("target")
